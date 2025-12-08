@@ -68,7 +68,7 @@ function terminal() {
           this.lines.push("> " + result.response);
         }
         else if (action === "crossref") {
-          result = await this.callAPI("/api/crossref", { prompt: payload });
+          result = await this.callAPI("crossref", { prompt: payload });
           if (result.error) {
   this.lines.push("ERROR: " + result.error);
 } else {
