@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="text-green-400">
+<nav class="bg-gray-100 text-black shadow-sm p-2">
+  Colrev AI
+</nav>
+<div 
+  x-data="terminal()" 
+  class="max-w-3xl mx-auto mt-10 p-4 bg-black font-mono text-sm border border-green-600 rounded"
+>
+
+  <!-- Output section -->
+  <div id="output" class="h-96 overflow-y-auto whitespace-pre-line">
+    <template x-for="line in lines">
+      <div x-text="line"></div>
+    </template>
+  </div>
+
+  <!-- Prompt -->
+  <div class="flex mt-2">
+    <span class="mr-2 text-green-300">$</span>
+    <input 
+      x-model="cmd"
+      @keydown.enter="runCommand()"
+      @keydown.arrow-up="prevCmd()"
+      @keydown.arrow-down="nextCmd()"
+      class="flex-1 bg-black text-green-400 outline-none"
+      autofocus
+    />
+  </div>
+
+</div>
+
+<script>
+function terminal() {
+  return {
+    cmd: "",
+    lines: ["Agent Terminal Ready. Type: ask <prompt>"],
+    history: [],
+    historyIndex: -1,
+
+    async runCommand() {
+      const command = this.cmd.trim();
+      if (!command) return;
+
+      this.lines.push("$ " + command);
+      this.history.push(command);
+      this.historyIndex = this.history.length;
+      this.cmd = "";
+
+      const [action, ...rest] = command.split(" ");
+      const payload = rest.join(" ");
+
+      try {
+        let result;
+
+        if (action === "ask") {
+          result = await this.callAPI("/ask", { prompt: payload });
+          this.lines.push("> " + result.response);
+        } 
+        else if (action === "plan") {
+          result = await this.callAPI("/plan", { prompt: payload });
+          this.lines.push("> " + result.response);
+        }
+        else if (action === "crossref") {
+          result = await this.callAPI("/crossref", { prompt: payload });
+          if (result.error) {
+  this.lines.push("ERROR: " + result.error);
+} else {
+  this.lines.push("> " + JSON.stringify(result.results, null, 2));
+} 
+        return;
+        }
+        else {
+          this.lines.push("Unknown command: " + action);
+          return;
+        }
+
+        this.lines.push("> " + result.response);
+      } catch (err) {
+        this.lines.push("Error: " + err.message);
+      }
+
+      this.$nextTick(() => {
+        const el = document.getElementById("output");
+        el.scrollTop = el.scrollHeight;
+      });
+    },
+
+    async callAPI(endpoint, body) {
+      try {
+    const res = await fetch("http://localhost:8000" + endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "API error " + res.status);
+    }
+
+    return await res.json();
+
+  } catch (err) {
+    console.error("API Error:", err);
+    return { error: err.message };
+  }
+    },
+
+    prevCmd() {
+      if (this.historyIndex > 0) {
+        this.historyIndex--;
+        this.cmd = this.history[this.historyIndex];
+      }
+    },
+
+    nextCmd() {
+      if (this.historyIndex < this.history.length - 1) {
+        this.historyIndex++;
+        this.cmd = this.history[this.historyIndex];
+      } else {
+        this.cmd = "";
+      }
+    }
+  }
+}
+</script>
+
+</body>
+</html>
