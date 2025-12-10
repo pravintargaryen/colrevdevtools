@@ -93,7 +93,7 @@ function terminal() {
     },
 
     async callAPI(endpoint, body) {
-    const BASE_URL = "https://your-fastapi-service.onrender.com"; 
+    const BASE_URL = "http://localhost:8000"; 
       try {
     const res = await fetch(BASE_URL + endpoint, {
       method: "POST",

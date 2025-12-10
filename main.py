@@ -7,9 +7,16 @@ from pydantic import BaseModel
 import dspy
 import os
 import requests
+import asyncio
 
 # Load environment variables
 load_dotenv()
+
+api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+if not api_key:
+    raise ValueError("Missing GOOGLE_API_KEY or GEMINI_API_KEY in environment!")
+
+
 
 app = FastAPI()
 app.add_middleware(
@@ -21,6 +28,7 @@ app.add_middleware(
 
 templates = Jinja2Templates(directory="templates")
 
+
 class Agent:
     def ask(self, prompt):
         return f"ASK received: {prompt}"
@@ -30,6 +38,7 @@ class Agent:
 
 class CrossrefInput(BaseModel):
     prompt: str        
+
 
 agent = Agent()
 
@@ -77,17 +86,12 @@ class CrossrefService(dspy.Signature):
     query: str = dspy.InputField(desc="The search query to look up on Crossref.")
     process_result: str = dspy.OutputField(desc="Summarized result of the API response.")
 
-
 # ----------------------------
 # DSPy Configuration
 # ----------------------------
-api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-if not api_key:
-    raise ValueError("Missing GOOGLE_API_KEY or GEMINI_API_KEY in environment!")
-
 # Configure Gemini as the LM backend for DSPy
 dspy.configure(lm=dspy.LM("gemini/gemini-2.5-flash"))
-
+# Initialize memory system
 # Create the DSPy ReAct agent
 agent = dspy.ReAct(CrossrefService, tools=[crossref_search_json])
 dspy_program = dspy.asyncify(agent)
@@ -109,10 +113,3 @@ async def crossref(data: CrossrefInput):
 def index(request: Request):
     return templates.TemplateResponse(request, name="index.html")
 
-@app.post("/ask")
-async def ask(data: dict):
-    return {"response": agent.ask(data["prompt"])}
-
-@app.post("/plan")
-async def plan(data: dict):
-    return {"response": agent.plan(data["prompt"])}    
